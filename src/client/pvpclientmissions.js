@@ -108,6 +108,15 @@ onNet("mission_state", async (stageData, currentStage, totalStages) => {
     //console.log(`arg1: ${missionData.stage.missionObjective.progress} - arg2: ${currentStage}`);
 });
 
+onNet("delete_object", async (netId) => {
+    const ent = NetworkGetEntityFromNetworkId(netId);
+    if(DoesEntityExist(ent)) {
+        missionData.holdingItem = false;
+        jacking = false;
+        DeleteEntity(ent);
+    }
+});
+
 onNet("mission_start_carjack", () => {
     startCarJacking();
 });
@@ -202,7 +211,7 @@ setTick(async() => {
 
 async function checkMissionConditions() {
     switch(missionData.stage.type) {
-        case MISSION_TYPES_VEHICLE_DELIVER:
+        case MISSION_TYPES_VEHICLE_DELIVER://Drive vehicle to drop off
             if(isAttacking()) {
                 const ent = NetworkGetEntityFromNetworkId(missionData.stage.missionObjective.netId);
                 const ped = GetPlayerPed(-1);
@@ -215,10 +224,11 @@ async function checkMissionConditions() {
                 }
             }
             break;
-        case MISSION_TYPES_OBJECT_CAPTURE:
+        case MISSION_TYPES_OBJECT_CAPTURE://Break in to capture object
             if(isAttacking()) {
                 const ped = GetPlayerPed(-1);
                 const coords = GetEntityCoords(ped);
+                //Check distance from player to mission object
                 const dist = GetDistanceBetweenCoords(missionData.stage.missionObjective.pos.x, missionData.stage.missionObjective.pos.y, missionData.stage.missionObjective.pos.z, coords[0], coords[1], coords[2]);
                 if(dist < 0.5) {
                     if(!jacking) {
@@ -247,9 +257,9 @@ async function checkMissionConditions() {
                 }
             }
             break;
-        case MISSION_TYPES_OBJECT_DELIVER:
+        case MISSION_TYPES_OBJECT_DELIVER://Deliver item to drop off
             if(isAttacking()) {
-                if(missionData.holdingItem) {
+                if(missionData.holdingItem) {//Holding mission item
                     const pressingCancel = await isPressingCancelKey();
                     if(pressingCancel) {
                         const ent = NetworkGetEntityFromNetworkId(missionData.stage.missionObjective.netId);
@@ -258,6 +268,14 @@ async function checkMissionConditions() {
                             DetachEntity(ent);//missionData.stage.missionObjective.netId
                             missionData.holdingItem = false;
                             emitNet("drop_object", missionData.stage.missionObjective.netId);
+                        }
+                    } else {
+                        //Check if inside drop off
+                        const ped = GetPlayerPed(-1);
+                        const coords_plr = GetEntityCoords(ped);
+                        const dist = GetDistanceBetweenCoords(missionData.stage.missionObjective.pos.x, missionData.stage.missionObjective.pos.y, missionData.stage.missionObjective.pos.z, coords_plr[0], coords_plr[1], coords_plr[2]);
+                        if(dist < 3.0) {
+                            emitNet("capturing", missionData.currentStage);
                         }
                     }
                 }

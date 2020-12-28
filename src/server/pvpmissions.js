@@ -98,7 +98,7 @@ var missions = [
                 missionObjective:{
                     model:"adder",
                     pos: {x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, h: 297.45794677734},//Delivery area
-                    marker: null,
+                    marker: {type: 27, x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375 + 0.3, dirX: 2, dirY: 0, dirZ: 0, rotX: 0, rotY: 0, rotZ: 0, scaleX: 5, scaleY: 5, scaleZ: 5, red: 0, green: 8, blue: 255, alpha: 255, bobUpAndDown: true, faceCamera: false, p19: 2, rotate: false, textureDict: null, textureName: null, drawOnEnts: false},
                     captureTime: 10*1000,
                     progress: 0,
                     captured: false,
@@ -198,6 +198,11 @@ async function sendPlayerDate(game_group) {
 }
 
 async function setupNextStage(game_group) {
+    if(game_group.mission.stages.length == game_group.stage + 1) {
+        console.log("game ended");
+        //endMission(game_group);
+        return;
+    }
     game_group.stage++;
     var stage = game_group.mission.stages[game_group.stage];
     var mission_state = null;
@@ -307,12 +312,17 @@ async function handleStageCaptured(game_group, source) {
             stage.missionObjective.captured = true;
             //DeleteVehicle(stage.missionObjective.entity_handle);
             await deleteVehicleForGroup(game_group, stage.missionObjective.netId);
-            //setupNextStage(game_group);
+            setupNextStage(game_group);
             break;
         case MISSION_TYPES_OBJECT_CAPTURE:
             stage.missionObjective.captured = true;
             emitNet("create_object", source, stage.missionObjective.objectModel);
             emitNet("cancel_action", source);
+            break;
+        case MISSION_TYPES_OBJECT_DELIVER:
+            stage.missionObjective.captured = true;
+            emitNet("delete_object", source, stage.missionObjective.netId);
+            setupNextStage(game_group);
             break;
     }
 }
