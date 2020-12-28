@@ -3,25 +3,26 @@ Delay = (ms) => new Promise(res => setTimeout(res, ms));
 var capture_update_rate = 100;
 var mm_queue = [];
 var team_size = 1;
-var debug_start_with_one = true;
+var debug_start_with_one = 1;
 
 var game_groups = [
 
 ];
-
 //blip colours
 const BLIP_COLOUR_GREEN = 2;
 const BLIP_COLOUR_LYELLOW = 16;
 
-const MISSION_TYPES_VEHICLE_CAPTURE = 0;
-const MISSION_TYPES_VEHICLE_DELIVER = 1;
-const MISSION_TYPES_OBJECT_CAPTURE = 2;
-const MISSION_TYPES_OBJECT_DELIVER = 3;
+const MISSION_TYPES_VEHICLE_CAPTURE = exports.test.MISSION_TYPES_VEHICLE_CAPTURE();
+const MISSION_TYPES_VEHICLE_DELIVER = exports.test.MISSION_TYPES_VEHICLE_DELIVER();
+const MISSION_TYPES_OBJECT_CAPTURE = exports.test.MISSION_TYPES_OBJECT_CAPTURE();
+const MISSION_TYPES_OBJECT_DELIVER = exports.test.MISSION_TYPES_OBJECT_DELIVER();
+const MISSION_TYPES_AREA_CAPTURE = exports.test.MISSION_TYPES_AREA_CAPTURE();
 //const MISSION_TYPES_CAPTURE_SPRAY = 1;
 //const MISSION_TYPES_BREAK = 2;
 
 var missions = [
     {
+        team_points: [0, 0],
         stages:[
             {
                 objectiveMessage: ["Defend the car","Recover the car"],
@@ -32,9 +33,11 @@ var missions = [
                 type: MISSION_TYPES_VEHICLE_CAPTURE,
                 missionObjective:{
                     model:"adder",
-                    pos: {x: -1796.1593017578, y: 488.03793334961, z: 133.85330200195, h: 83.679985046387},
+                    //x: -1726.1903076172, y: 476.79293823242, z: 126.067527771, h: 36.94909286499
+                    pos: {x: -1726.1903076172, y: 476.79293823242, z: 126.067527771, h: 36.94909286499},
+                    //pos: {x: -1796.1593017578, y: 488.03793334961, z: 133.85330200195, h: 83.679985046387},
                     //captureTime: 45*1000,
-                    captureTime: 1*1000,
+                    captureTime: 10*1000,
                     progress: 0,
                     captured: false,
                     entity_handle: null,
@@ -63,10 +66,6 @@ var missions = [
                     attacker_team: 2,
                 }
             },
-        ]
-    },
-    {
-        stages:[
             {
                 objectiveMessage: ["Break into the base","Defend the base"],
                 blips: {
@@ -85,7 +84,7 @@ var missions = [
                     entity_handle: null,
                     netId: null,
                     objectModel: "prop_ld_case_01",
-                    attacker_team: 2,//1 normally
+                    attacker_team: 1,//1 normally
                 }
             },
             {
@@ -105,7 +104,32 @@ var missions = [
                     entity_handle: null,
                     netId: null,
                     objectHolder: null,
-                    attacker_team: 2,//Should be 1
+                    attacker_team: 1,//Should be 1
+                }
+            },
+        ]
+    },
+    {
+        team_points: [0, 0],
+        stages:[
+            {
+                objectiveMessage: ["Capture and hold area to win","Capture and hold area to win"],
+                blips: {
+                    area: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 30, colour: BLIP_COLOUR_LYELLOW},
+                    missionObjective: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 5, colour: BLIP_COLOUR_GREEN},
+                },
+                type: MISSION_TYPES_AREA_CAPTURE,
+                missionObjective:{
+                    model:"adder",
+                    pos: {x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, h: 297.45794677734},//Delivery area
+                    //02/*dir*/, 0, 0, 0/*rot*/, 0, 0, 5/*scale*/, 5,5,0.8, 255,255,255, 200, 0, 0, 2, 0, 0, 0, 0
+                    marker: {type: 27, x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375 + 0.3, dirX: 2, dirY: 0, dirZ: 0, rotX: 0, rotY: 0, rotZ: 0, scaleX: 5, scaleY: 5, scaleZ: 5, red: 0, green: 8, blue: 255, alpha: 255, bobUpAndDown: true, faceCamera: false, p19: 2, rotate: false, textureDict: null, textureName: null, drawOnEnts: false},
+                    captureTime: 10*1000,
+                    progress: 0,
+                    captured: false,
+                    entity_handle: null,
+                    netId: null,
+                    attacker_team: 2,
                 }
             },
         ]
@@ -163,6 +187,7 @@ async function createGameGroups() {
         console.log("error");
         return;
     }
+    routing_bucket.available = false;
     game_group.bucket = routing_bucket;
     //Get players from start of queue
     var new_players = mm_queue.splice(0, required_players);
@@ -182,6 +207,7 @@ async function createGameGroups() {
     }
     //Todo, add more + make random
     game_group.mission = Object.assign({}, missions[1]);
+    //game_group.stage += 2;
     let game_group_id = game_groups.push(game_group);
     game_group_id--;
     //Spawn things
@@ -252,21 +278,21 @@ async function refreshBlips(game_group) {
 }
 
 onNet("pickup_object", async function(netId) {
-    const game_group = await findPlayerInGroups(source);
+    const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group) return;
     game_group.mission.stages[game_group.stage].missionObjective.objectHolder = source;
     updateMissionStage(game_group);
 });
 
 onNet("drop_object", async function(netId) {
-    const game_group = await findPlayerInGroups(source);
+    const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group) return;
     game_group.mission.stages[game_group.stage].missionObjective.objectHolder = null;
     updateMissionStage(game_group);
 });
 
 onNet("created_obj_net_id", async function(netId) {
-    const game_group = await findPlayerInGroups(source);
+    const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group) return;
     game_group.mission.stages[game_group.stage].missionObjective.netId = netId;
     game_group.mission.stages[game_group.stage].missionObjective.objectHolder = source;
@@ -277,16 +303,15 @@ onNet("created_obj_net_id", async function(netId) {
 
 onNet("baseevents:enteringVehicle", async function(vehHandle, seat, model, netId) {
     const entity_id = NetworkGetEntityFromNetworkId(netId);
-    const game_group = await findPlayerInGroups(source);
+    const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group) return;
     if(game_group.mission.stages[game_group.stage].type == MISSION_TYPES_VEHICLE_CAPTURE && entity_id == game_group.mission.stages[game_group.stage].missionObjective.entity_handle && game_group.mission.stages[game_group.stage].missionObjective.progress < game_group.mission.stages[game_group.stage].missionObjective.captureTime) {
-        console.log("found vel");
         startCarJacking(source);
     }
 });
 
 onNet("capturing", async function(stage) {
-    const game_group = await findPlayerInGroups(source);
+    const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group || game_group.mission.stages[stage].missionObjective.captured) {
         emitNet("cancel_action", source);
         return;
@@ -301,6 +326,11 @@ onNet("capturing", async function(stage) {
 
 async function handleStageCaptured(game_group, source) {
     let stage = game_group.mission.stages[game_group.stage];
+    console.log("here1");
+    let player = await findPlayerFromGroup(game_group, source);
+    console.log(player);
+    game_group.team_points[player.team - 1]++;
+    console.log("score:"+game_group.team_points[player.team - 1]);
     switch(stage.type) {                                
         case MISSION_TYPES_VEHICLE_CAPTURE:
             stage.missionObjective.captured = true;
@@ -335,14 +365,21 @@ async function deleteVehicleForGroup(game_group, vehicleNetId) {
 
 async function unlockVehicleForTeam(game_group, team) {
     const vehicleNetId = NetworkGetNetworkIdFromEntity(game_group.mission.stages[game_group.stage].missionObjective.entity_handle);
+    SetVehicleDoorsLocked(game_group.mission.stages[game_group.stage].missionObjective.entity_handle, 1);
     for(var x = 0; x < game_group.players.length; x++) {
-        if(game_group.players[x].team == team) {
-            emitNet("unlock_vehicle", game_group.players[x].index, team, vehicleNetId);
+        emitNet("unlock_vehicle", game_group.players[x].index, team, vehicleNetId);
+    }
+}
+
+async function findPlayerFromGroup(game_group, playerIdx) {
+    for(var x = 0; x < game_group.players.length; x++) {
+        if(game_group.players[x].index == playerIdx) {
+            return game_group.players[x];
         }
     }
 }
 
-async function findPlayerInGroups(playerIdx) {
+async function getGroupFromPlayerIdx(playerIdx) {
     for(var i = 0; i < game_groups.length; i++) {
         var game_group = game_groups[i];
         for(var x = 0; x < game_group.players.length; x++) {

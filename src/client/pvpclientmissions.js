@@ -13,10 +13,11 @@ var missionData = {
     holdingItem: false,
 }
 
-const MISSION_TYPES_VEHICLE_CAPTURE = 0;
-const MISSION_TYPES_VEHICLE_DELIVER = 1;
-const MISSION_TYPES_OBJECT_CAPTURE = 2;
-const MISSION_TYPES_OBJECT_DELIVER = 3;
+const MISSION_TYPES_VEHICLE_CAPTURE = exports.test.MISSION_TYPES_VEHICLE_CAPTURE();
+const MISSION_TYPES_VEHICLE_DELIVER = exports.test.MISSION_TYPES_VEHICLE_DELIVER();
+const MISSION_TYPES_OBJECT_CAPTURE = exports.test.MISSION_TYPES_OBJECT_CAPTURE();
+const MISSION_TYPES_OBJECT_DELIVER = exports.test.MISSION_TYPES_OBJECT_DELIVER();
+const MISSION_TYPES_AREA_CAPTURE = exports.test.MISSION_TYPES_AREA_CAPTURE();
 
 RegisterCommand('t1', async (source, args, raw) => {
     createMissionObject("prop_ld_case_01", null);
@@ -67,10 +68,31 @@ onNet("delete_vehicle", async (vehicleNetId) => {
 
 onNet("unlock_vehicle", async (team, vehicleNetId) => {
     const ent = NetworkGetEntityFromNetworkId(vehicleNetId);
-    SetVehicleDoorsLocked(ent, 1);
-    SetVehicleDoorsLockedForTeam(ent, 1, true);
-    SetVehicleDoorsLockedForTeam(ent, 2, true);
+    console.log("unlock_for:"+ team);
+    console.log("my_team:"+missionData.myTeam);
+    let ped = GetPlayerPed(-1);
+    if(team != missionData.myTeam) {
+        SetVehicleDoorsLockedForTeam(ent, missionData.myTeam, true);
+    }
+    //SetVehicleDoorsLockedForAllPlayers(ent, true);
+    //SetVehicleDoorsLockedForPlayer(GetPlayerPed(-1), false)
+    //SetVehicleDoorsLockedForPlayer(ped, false);
+    
+    
+    //SetVehicleDoorsLocked(ent, 1);
+    //SetVehicleDoorsLockedForTeam(ent, 1, true);
+    //SetVehicleDoorsLockedForTeam(ent, 2, true);
+    /*
     SetVehicleDoorsLockedForTeam(ent, team, false);
+    if(team == 1) {
+        console.log("doors locked for team: 2")
+        SetVehicleDoorsLockedForTeam(ent, 2, false);
+    } else {
+        console.log("doors locked for team: 1")
+        SetVehicleDoorsLockedForTeam(ent, 1, false);
+    }*/
+
+   //SetVehicleDoorsLockedForPlayer(GetPlayerPed(-1), false);
 });
 
 onNet("cancel_action", async () => {
@@ -127,9 +149,9 @@ onNet("mission_refresh_blips", async () => {
 
 async function refreshBlips() {
     let active_blips = missionData.activeBlips;
-    console.log("remove bleeeps");
+    //console.log("remove bleeeps");
     for(var i = 0; i < active_blips.length; i++) {
-        console.log("remove bleeepsxx");
+        //console.log("remove bleeepsxx");
         RemoveBlip(active_blips[i]);
     }
     active_blips = [];
@@ -138,9 +160,9 @@ async function refreshBlips() {
     let missionObjectiveBlip = null;
     for(const prop in blips) {
         const currentBlip = blips[prop];
-        console.log("boop");
-        console.log(currentBlip.type);
-        console.log(currentBlip);
+        //console.log("boop");
+        //console.log(currentBlip.type);
+        //console.log(currentBlip);
         let newBlip = null;
         switch(currentBlip.type) {
             case "radius":
@@ -171,7 +193,7 @@ async function refreshBlips() {
 
 }
 async function isAttacking() {
-    return missionData.myTeam == missionData.stage.attacker_team;
+    return missionData.myTeam == missionData.stage.missionObjective.attacker_team;
 }
 
 async function isPressingMoveKey() {
@@ -210,9 +232,18 @@ setTick(async() => {
 });
 
 async function checkMissionConditions() {
+    const is_attacking = await isAttacking();
     switch(missionData.stage.type) {
+        case MISSION_TYPES_AREA_CAPTURE://Stand in area to capture
+            const ped = GetPlayerPed(-1);
+            const coords = GetEntityCoords(ped);
+            const dist = GetDistanceBetweenCoords(missionData.stage.missionObjective.pos.x, missionData.stage.missionObjective.pos.y, missionData.stage.missionObjective.pos.z, coords[0], coords[1], coords[2]);
+            if(dist < 3.0) {
+                emitNet("capturing", missionData.currentStage);
+            }
+            break;
         case MISSION_TYPES_VEHICLE_DELIVER://Drive vehicle to drop off
-            if(isAttacking()) {
+            if(is_attacking) {
                 const ent = NetworkGetEntityFromNetworkId(missionData.stage.missionObjective.netId);
                 const ped = GetPlayerPed(-1);
                 if(IsPedInVehicle(ped, ent, true)) {
@@ -225,7 +256,7 @@ async function checkMissionConditions() {
             }
             break;
         case MISSION_TYPES_OBJECT_CAPTURE://Break in to capture object
-            if(isAttacking()) {
+            if(is_attacking) {
                 const ped = GetPlayerPed(-1);
                 const coords = GetEntityCoords(ped);
                 //Check distance from player to mission object
@@ -258,7 +289,7 @@ async function checkMissionConditions() {
             }
             break;
         case MISSION_TYPES_OBJECT_DELIVER://Deliver item to drop off
-            if(isAttacking()) {
+            if(is_attacking) {
                 if(missionData.holdingItem) {//Holding mission item
                     const pressingCancel = await isPressingCancelKey();
                     if(pressingCancel) {
@@ -281,25 +312,27 @@ async function checkMissionConditions() {
                 }
                 if(!missionData.holdingItem && missionData.stage.missionObjective.objectHolder == null) {//Don't use else as setting false above
                     const ent = NetworkGetEntityFromNetworkId(missionData.stage.missionObjective.netId);
-                    const ped = GetPlayerPed(-1);
-                    const coords_plr = GetEntityCoords(ped);
-                    const coords_ent = GetEntityCoords(ent);
-                    const dist = GetDistanceBetweenCoords(coords_plr[0], coords_plr[1], coords_plr[2], coords_ent[0], coords_ent[1], coords_ent[2]);
-                    if(dist < 1.0) {
-                        const action_key_pressed = await isActionKeyPressed();
-                        if(action_key_pressed) {
-                            let xPos = 0.15, yPos = 0, zPos = 0, xRot = 0, yRot = 0, zRot = 0, p9 = true, useSoftPinning = false, collision = false, isPed = true, vertexIndex = 1, fixedRot = true;
-                            AttachEntityToEntity(ent, ped, GetPedBoneIndex(ped, 57005), xPos, yPos, zPos, xRot, yRot, zRot, p9, useSoftPinning, collision, isPed, vertexIndex, fixedRot);
-                            ClearAllHelpMessages();
-                            missionData.holdingItem = true;
-                            emitNet("pickup_object", missionData.stage.missionObjective.netId);
+                    if(DoesEntityExist(ent)) {
+                        const ped = GetPlayerPed(-1);
+                        const coords_plr = GetEntityCoords(ped);
+                        const coords_ent = GetEntityCoords(ent);
+                        const dist = GetDistanceBetweenCoords(coords_plr[0], coords_plr[1], coords_plr[2], coords_ent[0], coords_ent[1], coords_ent[2]);
+                        if(dist < 1.0) {
+                            const action_key_pressed = await isActionKeyPressed();
+                            if(action_key_pressed) {
+                                let xPos = 0.15, yPos = 0, zPos = 0, xRot = 0, yRot = 0, zRot = 0, p9 = true, useSoftPinning = false, collision = false, isPed = true, vertexIndex = 1, fixedRot = true;
+                                AttachEntityToEntity(ent, ped, GetPedBoneIndex(ped, 57005), xPos, yPos, zPos, xRot, yRot, zRot, p9, useSoftPinning, collision, isPed, vertexIndex, fixedRot);
+                                ClearAllHelpMessages();
+                                missionData.holdingItem = true;
+                                emitNet("pickup_object", missionData.stage.missionObjective.netId);
+                            } else {
+                                BeginTextCommandDisplayHelp("STRING")
+                                AddTextComponentSubstringPlayerName("Press action key (F) to pickup")
+                                EndTextCommandDisplayHelp(0, true, true, 0)
+                            }
                         } else {
-                            BeginTextCommandDisplayHelp("STRING")
-                            AddTextComponentSubstringPlayerName("Press action key (F) to pickup")
-                            EndTextCommandDisplayHelp(0, true, true, 0)
+                            ClearAllHelpMessages();
                         }
-                    } else {
-                        ClearAllHelpMessages();
                     }
                 }
             }
@@ -393,11 +426,13 @@ async function startWindowJacking() {
 }
 
 async function startCarJacking() {
-    const plr = GetPlayerPed(-1);
+    if(missionData.myTeam == missionData.stage.missionObjective.attacker_team) {
+        const plr = GetPlayerPed(-1);
     
-    ClearPedTasksImmediately(plr)
-    
-    await loadAnimDict( "veh@break_in@0h@p_m_one@" )
-    TaskPlayAnim( plr, "veh@break_in@0h@p_m_one@", "low_locked_ps", 8.0, 1.0, missionData.stage.missionObjective.captureTime + 10000, 1, 0, 0, 0, 0 )
-    jacking = true;
+        ClearPedTasksImmediately(plr)
+        
+        await loadAnimDict( "veh@break_in@0h@p_m_one@" )
+        TaskPlayAnim( plr, "veh@break_in@0h@p_m_one@", "low_locked_ps", 8.0, 1.0, missionData.stage.missionObjective.captureTime + 10000, 1, 0, 0, 0, 0 )
+        jacking = true;
+    }
 }
