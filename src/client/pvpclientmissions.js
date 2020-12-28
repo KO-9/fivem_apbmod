@@ -10,6 +10,7 @@ var missionData = {
     currentStage: 0,
     myTeam: null,
     activeBlips: [],
+    holdingItem: false,
 }
 
 const MISSION_TYPES_VEHICLE_CAPTURE = 0;
@@ -17,8 +18,45 @@ const MISSION_TYPES_VEHICLE_DELIVER = 1;
 const MISSION_TYPES_OBJECT_CAPTURE = 2;
 const MISSION_TYPES_OBJECT_DELIVER = 3;
 
+RegisterCommand('t1', async (source, args, raw) => {
+    createMissionObject("prop_ld_case_01", null);
+});
+
+
+async function createMissionObject(objectModel, pos) {
+    const hash = GetHashKey(objectModel);
+    RequestModel(hash)
+    while(!HasModelLoaded(hash)) {
+        await Delay(50);
+    }
+    //local bagspawned = CreateObject(GetHashKey(bagModel), plyCoords.x, plyCoords.y, plyCoords.z, 1, 1, 1)
+    if(pos == null) {
+        pos = {};
+        const ped = GetPlayerPed(-1);
+        const coords = GetEntityCoords(ped);
+        pos.x = coords[0];
+        pos.y = coords[1];
+        pos.z = coords[2];
+    }
+    let object = CreateObject(hash, pos.x, pos.y, pos.z, true, true, false);
+    let netId = NetworkGetNetworkIdFromEntity(object);
+    //        AttachEntityToEntity(bagspawned, GetPlayerPed(PlayerId()), GetPedBoneIndex(GetPlayerPed(PlayerId()), 57005), 0.15, 0, 0, 0, 270.0, 60.0, true, true, false, true, 1, true)
+    //AttachEntityToEntity(object, GetPlayerPed(PlayerId()), GetPedBoneIndex(GetPlayerPed(PlayerId()), 57005), 0.15, 0, 0, 0, 270.0, 60.0, true, true, false, true, 1, true)
+    if(typeof ped == "undefined") {
+        var ped = GetPlayerPed(-1);
+    }
+    let xPos = 0.15, yPos = 0, zPos = 0, xRot = 0, yRot = 0, zRot = 0, p9 = true, useSoftPinning = false, collision = false, isPed = true, vertexIndex = 1, fixedRot = true;
+    AttachEntityToEntity(object, ped, GetPedBoneIndex(ped, 57005), xPos, yPos, zPos, xRot, yRot, zRot, p9, useSoftPinning, collision, isPed, vertexIndex, fixedRot);
+    missionData.holdingItem = true;
+    emitNet("created_obj_net_id", netId);
+}
+
 onNet("entered_mission_q", async () => {
     console.log(`entered q`);
+});
+
+onNet("create_object", async (objectModel) => {
+    createMissionObject(objectModel, null);
 });
 
 onNet("delete_vehicle", async (vehicleNetId) => {
@@ -56,8 +94,9 @@ onNet("mission_team_data", async (players) => {
 });
 
 onNet("mission_state", async (stageData, currentStage, totalStages) => {
+    console.log("getstate");
     if(onMission && missionData.currentStage != currentStage) {
-        emit("cancel_action");
+        ClearAllHelpMessages();
     }
     missionData.stage = stageData;
     missionData.currentStage = currentStage;
@@ -143,8 +182,12 @@ async function isPressingMoveKey() {
     return false;
 }
 
+async function isPressingCancelKey() {
+    return IsControlPressed(0, 73);//Default X
+}
+
 async function isActionKeyPressed() {
-    return IsControlPressed(0, 23);
+    return IsControlPressed(0, 23);//Default F
 }
 
 setTick(async() => {
@@ -182,6 +225,8 @@ async function checkMissionConditions() {
                         const action_key_pressed = await isActionKeyPressed();
                         if(action_key_pressed) {
                             jacking = true;
+                            startWindowJacking();
+                            ClearAllHelpMessages();
                         } else {
                             BeginTextCommandDisplayHelp("STRING")
                             AddTextComponentSubstringPlayerName("Press action key (F) to capture")
@@ -193,8 +238,51 @@ async function checkMissionConditions() {
                     }
                     //emitNet("capturing", missionData.currentStage);
                 } else {
-                    jacking = false;
+                    if(jacking) {
+                        jacking = false;
+                        const plr = GetPlayerPed(-1);
+                        ClearPedTasksImmediately(plr)
+                    }
                     ClearAllHelpMessages();
+                }
+            }
+            break;
+        case MISSION_TYPES_OBJECT_DELIVER:
+            if(isAttacking()) {
+                if(missionData.holdingItem) {
+                    const pressingCancel = await isPressingCancelKey();
+                    if(pressingCancel) {
+                        const ent = NetworkGetEntityFromNetworkId(missionData.stage.missionObjective.netId);
+                        if(DoesEntityExist(ent)) {
+                            console.log("Drop pressed");
+                            DetachEntity(ent);//missionData.stage.missionObjective.netId
+                            missionData.holdingItem = false;
+                            emitNet("drop_object", missionData.stage.missionObjective.netId);
+                        }
+                    }
+                }
+                if(!missionData.holdingItem && missionData.stage.missionObjective.objectHolder == null) {//Don't use else as setting false above
+                    const ent = NetworkGetEntityFromNetworkId(missionData.stage.missionObjective.netId);
+                    const ped = GetPlayerPed(-1);
+                    const coords_plr = GetEntityCoords(ped);
+                    const coords_ent = GetEntityCoords(ent);
+                    const dist = GetDistanceBetweenCoords(coords_plr[0], coords_plr[1], coords_plr[2], coords_ent[0], coords_ent[1], coords_ent[2]);
+                    if(dist < 1.0) {
+                        const action_key_pressed = await isActionKeyPressed();
+                        if(action_key_pressed) {
+                            let xPos = 0.15, yPos = 0, zPos = 0, xRot = 0, yRot = 0, zRot = 0, p9 = true, useSoftPinning = false, collision = false, isPed = true, vertexIndex = 1, fixedRot = true;
+                            AttachEntityToEntity(ent, ped, GetPedBoneIndex(ped, 57005), xPos, yPos, zPos, xRot, yRot, zRot, p9, useSoftPinning, collision, isPed, vertexIndex, fixedRot);
+                            ClearAllHelpMessages();
+                            missionData.holdingItem = true;
+                            emitNet("pickup_object", missionData.stage.missionObjective.netId);
+                        } else {
+                            BeginTextCommandDisplayHelp("STRING")
+                            AddTextComponentSubstringPlayerName("Press action key (F) to pickup")
+                            EndTextCommandDisplayHelp(0, true, true, 0)
+                        }
+                    } else {
+                        ClearAllHelpMessages();
+                    }
                 }
             }
     }
@@ -275,6 +363,15 @@ async function loadAnimDict(dict) {
         RequestAnimDict(dict);
         await Delay(50);
     }
+}
+
+async function startWindowJacking() {
+    const plr = GetPlayerPed(-1);
+    
+    ClearPedTasksImmediately(plr)
+    
+    await loadAnimDict( "veh@break_in@0h@p_m_one@" )
+    TaskPlayAnim( plr, "veh@break_in@0h@p_m_one@", "low_locked_ps", 8.0, 1.0, missionData.stage.missionObjective.captureTime + 10000, 1, 0, 0, 0, 0 )
 }
 
 async function startCarJacking() {

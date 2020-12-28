@@ -79,21 +79,22 @@ var missions = [
                     pos: {x: -1778.3726806641, y: 465.91171264648, z: 129.04014587402, h: 106.81718444824},
                     //captureTime: 45*1000,
                     marker: {type: 27, x: -1778.3726806641, y: 465.91171264648, z: 129.04014587402 - 0.5, dirX: 0, dirY: 0, dirZ: 0, rotX: 0, rotY: 0, rotZ: 0, scaleX: 1, scaleY: 1, scaleZ: 1, red: 0, green: 8, blue: 255, alpha: 255, bobUpAndDown: true, faceCamera: false, p19: 2, rotate: false, textureDict: null, textureName: null, drawOnEnts: false},
-                    captureTime: 45*1000,
+                    captureTime: 4.5*1000,
                     progress: 0,
                     captured: false,
                     entity_handle: null,
                     netId: null,
+                    objectModel: "prop_ld_case_01",
                     attacker_team: 2,//1 normally
                 }
             },
             {
-                objectiveMessage: ["Prevent the drop off","Drop off the car"],
+                objectiveMessage: ["Drop off the bag", "Prevent the drop off"],
                 blips: {
                     area: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 30, colour: BLIP_COLOUR_LYELLOW},
-                    missionObjective: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 5, colour: BLIP_COLOUR_LYELLOW},
+                    missionObjective: {type: "entity", netId: null, colour: BLIP_COLOUR_LYELLOW},
                 },
-                type: MISSION_TYPES_VEHICLE_DELIVER,
+                type: MISSION_TYPES_OBJECT_DELIVER,
                 missionObjective:{
                     model:"adder",
                     pos: {x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, h: 297.45794677734},//Delivery area
@@ -103,7 +104,8 @@ var missions = [
                     captured: false,
                     entity_handle: null,
                     netId: null,
-                    attacker_team: 2,
+                    objectHolder: null,
+                    attacker_team: 2,//Should be 1
                 }
             },
         ]
@@ -179,7 +181,7 @@ async function createGameGroups() {
         console.log(`route: ${GetPlayerRoutingBucket(plr.index)}`);
     }
     //Todo, add more + make random
-    game_group.mission = missions[1];
+    game_group.mission = Object.assign({}, missions[1]);
     let game_group_id = game_groups.push(game_group);
     game_group_id--;
     //Spawn things
@@ -199,6 +201,7 @@ async function setupNextStage(game_group) {
     game_group.stage++;
     var stage = game_group.mission.stages[game_group.stage];
     var mission_state = null;
+    console.log("begin-setup-state");
     switch(stage.type) {
         case MISSION_TYPES_VEHICLE_CAPTURE:
             const hash = GetHashKey(stage.missionObjective.model);
@@ -219,7 +222,12 @@ async function setupNextStage(game_group) {
             stage.missionObjective.netId = game_group.mission.stages[game_group.stage - 1].missionObjective.netId;
             //refreshBlips(game_group);
             break;
+        case MISSION_TYPES_OBJECT_DELIVER:
+            stage.missionObjective.netId = game_group.mission.stages[game_group.stage - 1].missionObjective.netId;
+            stage.blips.missionObjective.netId = stage.missionObjective.netId;
+            break;
     }
+    console.log("end-setup-state");
     updateMissionStage(game_group);
     refreshBlips(game_group);
 }
@@ -237,6 +245,30 @@ async function refreshBlips(game_group) {
         emitNet("mission_refresh_blips", plr_id);
     }
 }
+
+onNet("pickup_object", async function(netId) {
+    const game_group = await findPlayerInGroups(source);
+    if(!game_group) return;
+    game_group.mission.stages[game_group.stage].missionObjective.objectHolder = source;
+    updateMissionStage(game_group);
+});
+
+onNet("drop_object", async function(netId) {
+    const game_group = await findPlayerInGroups(source);
+    if(!game_group) return;
+    game_group.mission.stages[game_group.stage].missionObjective.objectHolder = null;
+    updateMissionStage(game_group);
+});
+
+onNet("created_obj_net_id", async function(netId) {
+    const game_group = await findPlayerInGroups(source);
+    if(!game_group) return;
+    game_group.mission.stages[game_group.stage].missionObjective.netId = netId;
+    game_group.mission.stages[game_group.stage].missionObjective.objectHolder = source;
+    setupNextStage(game_group);
+});
+
+
 
 onNet("baseevents:enteringVehicle", async function(vehHandle, seat, model, netId) {
     const entity_id = NetworkGetEntityFromNetworkId(netId);
@@ -257,16 +289,17 @@ onNet("capturing", async function(stage) {
     game_group.mission.stages[stage].missionObjective.progress += capture_update_rate;
     if(!game_group.mission.stages[stage].missionObjective.captured && game_group.mission.stages[stage].missionObjective.progress >= game_group.mission.stages[stage].missionObjective.captureTime) {
         //Captured
-        await handleStageCaptured(game_group);
+        await handleStageCaptured(game_group, source);
     }
     updateMissionStage(game_group);
 });
 
-async function handleStageCaptured(game_group) {
+async function handleStageCaptured(game_group, source) {
     let stage = game_group.mission.stages[game_group.stage];
     switch(stage.type) {                                
         case MISSION_TYPES_VEHICLE_CAPTURE:
             stage.missionObjective.captured = true;
+            emitNet("cancel_action", source);
             await unlockVehicleForTeam(game_group, stage.missionObjective.attacker_team);
             setupNextStage(game_group);
             break;
@@ -275,6 +308,11 @@ async function handleStageCaptured(game_group) {
             //DeleteVehicle(stage.missionObjective.entity_handle);
             await deleteVehicleForGroup(game_group, stage.missionObjective.netId);
             //setupNextStage(game_group);
+            break;
+        case MISSION_TYPES_OBJECT_CAPTURE:
+            stage.missionObjective.captured = true;
+            emitNet("create_object", source, stage.missionObjective.objectModel);
+            emitNet("cancel_action", source);
             break;
     }
 }
