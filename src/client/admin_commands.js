@@ -17,6 +17,11 @@ RegisterCommand('go', async (source, args, raw) => {
 });
 
 
+RegisterCommand('gun', async (source, args, raw) => {
+  GiveWeaponToPed(GetPlayerPed(-1), "WEAPON_COMPACTLAUNCHER", 30, false, true);
+});
+
+
 RegisterCommand('car', async (source, args, raw) => {
     // account for the argument not being passed
     let model = "adder";

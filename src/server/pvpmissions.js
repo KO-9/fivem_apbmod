@@ -22,9 +22,18 @@ const MISSION_TYPES_AREA_CAPTURE = exports.test.MISSION_TYPES_AREA_CAPTURE();
 
 var missions = [
     {
-        team_points: [0, 0],
         stages:[
             {
+                respawnPoints: [
+                    [
+                        {x: -1837.1103515625, y: 468.28338623047, z: 129.05754089355, h: 327.11499023438},
+                        {x: -1835.8028564453, y: 533.63433837891, z: 146.80891418457, h: 3.8103404045105},
+                    ],
+                    [
+                        {x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633, h: 359.84979248047},
+                        {x: -1872.3438720703, y: 403.28103637695, z: 106.99066162109, h: 237.04147338867}
+                    ]
+                ],
                 objectiveMessage: ["Defend the car","Recover the car"],
                 blips: {
                     area: {type: "radius", x: -1796.1593017578, y: 488.03793334961, z: 133.85330200195, radius: 30, colour: BLIP_COLOUR_LYELLOW},
@@ -47,6 +56,16 @@ var missions = [
                 }
             },
             {
+                respawnPoints: [
+                    [
+                        {x: -1837.1103515625, y: 468.28338623047, z: 129.05754089355, h: 327.11499023438},
+                        {x: -1835.8028564453, y: 533.63433837891, z: 146.80891418457, h: 3.8103404045105},
+                    ],
+                    [
+                        {x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633, h: 359.84979248047},
+                        {x: -1872.3438720703, y: 403.28103637695, z: 106.99066162109, h: 237.04147338867}
+                    ]
+                ],
                 objectiveMessage: ["Prevent the drop off","Drop off the car"],
                 blips: {
                     area: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 30, colour: BLIP_COLOUR_LYELLOW},
@@ -67,6 +86,16 @@ var missions = [
                 }
             },
             {
+                respawnPoints: [
+                    [
+                        {x: -1837.1103515625, y: 468.28338623047, z: 129.05754089355, h: 327.11499023438},
+                        {x: -1835.8028564453, y: 533.63433837891, z: 146.80891418457, h: 3.8103404045105},
+                    ],
+                    [
+                        {x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633, h: 359.84979248047},
+                        {x: -1872.3438720703, y: 403.28103637695, z: 106.99066162109, h: 237.04147338867}
+                    ]
+                ],
                 objectiveMessage: ["Break into the base","Defend the base"],
                 blips: {
                     area: {type: "radius", x: -1778.3726806641, y: 465.91171264648, z: 129.04014587402, h: 106.81718444824, radius: 30, colour: BLIP_COLOUR_LYELLOW},
@@ -84,10 +113,20 @@ var missions = [
                     entity_handle: null,
                     netId: null,
                     objectModel: "prop_ld_case_01",
-                    attacker_team: 1,//1 normally
+                    attacker_team: 2,//1 normally
                 }
             },
             {
+                respawnPoints: [
+                    [
+                        {x: -1837.1103515625, y: 468.28338623047, z: 129.05754089355, h: 327.11499023438},
+                        {x: -1835.8028564453, y: 533.63433837891, z: 146.80891418457, h: 3.8103404045105},
+                    ],
+                    [
+                        {x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633, h: 359.84979248047},
+                        {x: -1872.3438720703, y: 403.28103637695, z: 106.99066162109, h: 237.04147338867}
+                    ]
+                ],
                 objectiveMessage: ["Drop off the bag", "Prevent the drop off"],
                 blips: {
                     area: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 30, colour: BLIP_COLOUR_LYELLOW},
@@ -104,15 +143,54 @@ var missions = [
                     entity_handle: null,
                     netId: null,
                     objectHolder: null,
-                    attacker_team: 1,//Should be 1
+                    attacker_team: 2,//Should be 1
+                }
+            },
+            {
+                respawnPoints: [
+                    [
+                        {x: -1837.1103515625, y: 468.28338623047, z: 129.05754089355, h: 327.11499023438},
+                        {x: -1835.8028564453, y: 533.63433837891, z: 146.80891418457, h: 3.8103404045105},
+                    ],
+                    [
+                        {x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633, h: 359.84979248047},
+                        {x: -1872.3438720703, y: 403.28103637695, z: 106.99066162109, h: 237.04147338867}
+                    ]
+                ],
+                objectiveMessage: ["Capture and hold area to win","Capture and hold area to win"],
+                blips: {
+                    area: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 30, colour: BLIP_COLOUR_LYELLOW},
+                    missionObjective: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 5, colour: BLIP_COLOUR_GREEN},
+                },
+                type: MISSION_TYPES_AREA_CAPTURE,
+                missionObjective:{
+                    model:"adder",
+                    pos: {x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, h: 297.45794677734},//Delivery area
+                    //02/*dir*/, 0, 0, 0/*rot*/, 0, 0, 5/*scale*/, 5,5,0.8, 255,255,255, 200, 0, 0, 2, 0, 0, 0, 0
+                    marker: {type: 27, x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375 + 0.3, dirX: 2, dirY: 0, dirZ: 0, rotX: 0, rotY: 0, rotZ: 0, scaleX: 5, scaleY: 5, scaleZ: 5, red: 0, green: 8, blue: 255, alpha: 255, bobUpAndDown: true, faceCamera: false, p19: 2, rotate: false, textureDict: null, textureName: null, drawOnEnts: false},
+                    captureTime: 10*1000,
+                    progress: 0,
+                    captured: false,
+                    entity_handle: null,
+                    netId: null,
+                    attacker_team: 2,
                 }
             },
         ]
     },
     {
-        team_points: [0, 0],
         stages:[
             {
+                respawnPoints: [
+                    [
+                        {x: -1837.1103515625, y: 468.28338623047, z: 129.05754089355, h: 327.11499023438},
+                        {x: -1835.8028564453, y: 533.63433837891, z: 146.80891418457, h: 3.8103404045105},
+                    ],
+                    [
+                        {x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633, h: 359.84979248047},
+                        {x: -1872.3438720703, y: 403.28103637695, z: 106.99066162109, h: 237.04147338867}
+                    ]
+                ],
                 objectiveMessage: ["Capture and hold area to win","Capture and hold area to win"],
                 blips: {
                     area: {type: "radius", x: -1677.8245849609, y: 489.72100830078, z: 128.43896484375, radius: 30, colour: BLIP_COLOUR_LYELLOW},
@@ -155,6 +233,10 @@ RegisterCommand('w0', async (source, args, raw) => {
 RegisterCommand('q', async (source, args, raw) => {
     //console.log("queue req");
     if(!mm_queue.includes(source)) {
+        let group = await getGroupFromPlayerIdx(source);
+        if(group !== false) {
+            return;
+        }
         mm_queue.push(source);
         emitNet("entered_mission_q", source);
         if(debug_start_with_one || mm_queue.length >= (team_size * 2)) {
@@ -168,6 +250,7 @@ async function createGameGroups() {
         players: [],
         stage: -1,
         winner: null,
+        team_points: [0, 0],
     };
     var required_players = 1;
     if(!debug_start_with_one) {
@@ -206,14 +289,23 @@ async function createGameGroups() {
         console.log(`route: ${GetPlayerRoutingBucket(plr.index)}`);
     }
     //Todo, add more + make random
-    game_group.mission = Object.assign({}, missions[1]);
+    game_group.mission = JSON.parse(JSON.stringify(missions[0]));
+    //console.log(game_group.mission);
     //game_group.stage += 2;
     let game_group_id = game_groups.push(game_group);
     game_group_id--;
     //Spawn things
     sendPlayerDate(game_group);
     setupNextStage(game_group);
+    sendStartMission(game_group);
     //GetPlayerFromServerId
+}
+
+async function sendStartMission(game_group) {
+    for(var i = 0; i < game_group.players.length; i++) {
+        var plr_id = game_group.players[i].index;
+        emitNet("mission_start", plr_id);
+    }
 }
 
 async function sendPlayerDate(game_group) {
@@ -223,10 +315,19 @@ async function sendPlayerDate(game_group) {
     }
 }
 
+async function endMission(game_group) {
+    for(var i = 0; i < game_group.players.length; i++) {
+        var plr_id = game_group.players[i].index;
+        SetPlayerRoutingBucket(plr_id, 0);
+        emitNet("mission_ended", plr_id);
+    }
+    game_groups.splice(game_groups.indexOf(game_group), 1);
+}
+
 async function setupNextStage(game_group) {
     if(game_group.mission.stages.length == game_group.stage + 1) {
         console.log("game ended");
-        //endMission(game_group);
+        endMission(game_group);
         return;
     }
     game_group.stage++;
@@ -236,6 +337,10 @@ async function setupNextStage(game_group) {
     switch(stage.type) {
         case MISSION_TYPES_VEHICLE_CAPTURE:
             const hash = GetHashKey(stage.missionObjective.model);
+            //Won't spawn if nobody is in range...
+            //Need to handle when a player is within X distance of entity and if entity has not spawned or does not exist...
+            //Must also handle respawnig of veh
+            //Death of player with object
             const vehicle = CreateVehicle(hash, stage.missionObjective.pos.x, stage.missionObjective.pos.y, stage.missionObjective.pos.z, stage.missionObjective.pos.h, true, true);
             while(!DoesEntityExist(vehicle)) {
                 await Delay(50);
@@ -314,6 +419,7 @@ onNet("capturing", async function(stage) {
     const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group || game_group.mission.stages[stage].missionObjective.captured) {
         emitNet("cancel_action", source);
+        console.log(game_group);
         return;
     }
     game_group.mission.stages[stage].missionObjective.progress += capture_update_rate;
@@ -326,9 +432,7 @@ onNet("capturing", async function(stage) {
 
 async function handleStageCaptured(game_group, source) {
     let stage = game_group.mission.stages[game_group.stage];
-    console.log("here1");
     let player = await findPlayerFromGroup(game_group, source);
-    console.log(player);
     game_group.team_points[player.team - 1]++;
     console.log("score:"+game_group.team_points[player.team - 1]);
     switch(stage.type) {                                
@@ -352,6 +456,10 @@ async function handleStageCaptured(game_group, source) {
         case MISSION_TYPES_OBJECT_DELIVER:
             stage.missionObjective.captured = true;
             emitNet("delete_object", source, stage.missionObjective.netId);
+            setupNextStage(game_group);
+            break;
+        case MISSION_TYPES_AREA_CAPTURE:
+            stage.missionObjective.captured = true;
             setupNextStage(game_group);
             break;
     }

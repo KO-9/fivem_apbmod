@@ -1,5 +1,10 @@
 Delay = (ms) => new Promise(res => setTimeout(res, ms));
 
+AddTextEntry('FE_THDR_GTAO', 'beeboop')
+
+//var respawn_time = 5000;
+var respawn_time = 10000;
+
 var onMission = false;
 var jacking = false;
 var missionData = {
@@ -11,6 +16,8 @@ var missionData = {
     myTeam: null,
     activeBlips: [],
     holdingItem: false,
+    respawnBlips: [],
+    selectedRespawnBlip: null,
 }
 
 const MISSION_TYPES_VEHICLE_CAPTURE = exports.test.MISSION_TYPES_VEHICLE_CAPTURE();
@@ -20,7 +27,9 @@ const MISSION_TYPES_OBJECT_DELIVER = exports.test.MISSION_TYPES_OBJECT_DELIVER()
 const MISSION_TYPES_AREA_CAPTURE = exports.test.MISSION_TYPES_AREA_CAPTURE();
 
 RegisterCommand('t1', async (source, args, raw) => {
-    createMissionObject("prop_ld_case_01", null);
+    //createMissionObject("prop_ld_case_01", null);
+    diedAt = null;
+    spawning = false;
 });
 
 
@@ -115,6 +124,92 @@ onNet("mission_team_data", async (players) => {
     }
 });
 
+var diedAt = null;
+function spawnCallback() {
+    if(diedAt == null) {
+        diedAt = GetGameTimer();
+        emit('chat:addMessage', {
+        args: [
+        'Open the map and set a spawn point...'
+        ]
+    })
+    AddTextEntry('FE_THDR_GTAO', 'Select a respawn point as waypoint')
+    refreshBlips();;
+    ActivateFrontendMenu(-1171018317, 0, -1);
+    } else {
+        if(GetTimeDifference(GetGameTimer(), diedAt) > respawn_time) {
+            //Ready to respawn the player
+            //Check if they have set a spawn point
+            if(!spawning) handleRespawn();
+        }
+    }
+}
+
+var spawning = false;
+async function handleRespawn() {
+    spawning = true;
+    var respawn_point = null;
+    let waypoint = GetFirstBlipInfoId(8);
+
+    if(DoesBlipExist(waypoint)) {
+        respawn_point = GetBlipCoords(waypoint)
+        var pointIsValid = false;
+        for(var i = 0; i < missionData.stage.respawnPoints[missionData.myTeam - 1].length; i++) {
+            let point = missionData.stage.respawnPoints[missionData.myTeam - 1][i];
+            const dist = Vdist2(respawn_point[0], respawn_point[1], 1, point.x, point.y, 1);
+            if(dist < 5.0) {
+                pointIsValid = true;
+                console.log("Point is valid")
+                break;
+            }
+        }
+        let groundZ = 0;
+        let ground = false;
+        if(pointIsValid) {
+            var groundCheckHeights = [100.0, 150.0, 50.0, 0.0, 200.0, 250.0, 300.0, 350.0, 400.0,450.0, 500.0, 550.0, 600.0, 650.0, 700.0, 750.0, 800.0];
+            for(var i = 0; i < groundCheckHeights.length; i++) {
+                groundZ, ground = GetGroundZAndNormalFor_3dCoord(respawn_point[0], respawn_point[1], groundCheckHeights[i]);
+                if(ground[0]) {
+                    respawn_point[2] = ground[1] + 2;
+                    break;
+                }
+            }
+        } else {
+            respawn_point = missionData.respawnBlips[0];
+            respawn_point = GetBlipCoords(respawn_point);
+        }
+    } else {
+        respawn_point = missionData.respawnBlips[0];
+        respawn_point = GetBlipCoords(respawn_point);
+    }
+    //console.log("here..4");
+    exports.spawnmanager.spawnPlayer({
+        // this argument is basically an object containing the spawn location...
+        x: respawn_point[0],
+        y: respawn_point[1],
+        z: respawn_point[2],
+        //x: -1769.5615234375, y: 477.29711914062, z: 134.21438598633,
+        // ... and the model to spawn as.
+        model: 'a_m_m_skater_01'
+    }, () => {
+        //Callback
+        ClearAllBlipRoutes();
+        diedAt = null;
+        spawning = false;
+        AddTextEntry('FE_THDR_GTAO', 'beeboop')
+        refreshBlips();
+    });
+}
+
+onNet("mission_start", async () => {
+    onMission = true;
+    exports.spawnmanager.setAutoSpawnCallback(spawnCallback);
+    exports.spawnmanager.setAutoSpawn(true);
+    //hookSpawn();
+    const ped = GetPlayerPed(-1);
+    GiveWeaponToPed(ped, "WEAPON_COMPACTLAUNCHER", 30, false, true);
+});
+
 onNet("mission_state", async (stageData, currentStage, totalStages) => {
     console.log("getstate");
     if(onMission && missionData.currentStage != currentStage) {
@@ -123,10 +218,6 @@ onNet("mission_state", async (stageData, currentStage, totalStages) => {
     missionData.stage = stageData;
     missionData.currentStage = currentStage;
     missionData.stages = totalStages;
-    if(!onMission) {
-        console.log("enb_mission");
-        onMission = true;
-    }
     //console.log(`arg1: ${missionData.stage.missionObjective.progress} - arg2: ${currentStage}`);
 });
 
@@ -139,9 +230,36 @@ onNet("delete_object", async (netId) => {
     }
 });
 
+onNet("mission_ended", () => {
+    console.log("mission_ended");
+    onMission = false;
+    resetMissionData();
+    exports.spawnmanager.setAutoSpawnCallback(false);
+});
+
+function resetMissionData()  {
+    console.log("reset-data");
+    onMission = false;
+    jacking = false;
+    missionData = {
+        stage: null,
+        stages: 0,
+        missionText: null,
+        teamId: null,
+        currentStage: 0,
+        myTeam: null,
+        activeBlips: missionData.activeBlips,
+        holdingItem: false,
+        respawnBlips: missionData.respawnBlips,
+    };
+    refreshBlips();
+    console.log("reset-data-end");
+}
+
 onNet("mission_start_carjack", () => {
     startCarJacking();
 });
+
 onNet("mission_refresh_blips", async () => {
     console.log("refresh blips");
     refreshBlips();
@@ -155,9 +273,8 @@ async function refreshBlips() {
         RemoveBlip(active_blips[i]);
     }
     active_blips = [];
+    missionData.respawnBlips = [];
     let blips = missionData.stage.blips;
-    let areaBlip = null;
-    let missionObjectiveBlip = null;
     for(const prop in blips) {
         const currentBlip = blips[prop];
         //console.log("boop");
@@ -189,6 +306,23 @@ async function refreshBlips() {
             //if(missionData.myTeam == missionData.stage.attacker_team) setBlipAsFriendly(missionObjectiveBlip, true);
             break;
         }
+    }
+    if(diedAt != null) {
+        for(var y = 0; y < missionData.stage.respawnPoints[missionData.myTeam - 1].length; y++) {
+            let respawnPoint = missionData.stage.respawnPoints[missionData.myTeam - 1][y];
+            newBlip = AddBlipForCoord(respawnPoint.x, respawnPoint.y, respawnPoint.z);
+            SetBlipSprite(newBlip, 42);
+            SetBlipRotation(newBlip, 0);
+            SetBlipColour(newBlip, 2);
+            SetBlipDisplay(newBlip, 6);
+            SetBlipAsShortRange(newBlip, true)
+            BeginTextCommandSetBlipName("STRING")
+            AddTextComponentString("Respawn point")
+            EndTextCommandSetBlipName(newBlip)
+            missionData.respawnBlips.push(newBlip);
+            missionData.activeBlips.push(newBlip);
+        }
+        
     }
 
 }
@@ -233,6 +367,7 @@ setTick(async() => {
 
 async function checkMissionConditions() {
     const is_attacking = await isAttacking();
+
     switch(missionData.stage.type) {
         case MISSION_TYPES_AREA_CAPTURE://Stand in area to capture
             const ped = GetPlayerPed(-1);
@@ -352,6 +487,7 @@ setTick(async() => {
     if(onMission) {
         drawHud();
         drawMarkers();
+        AllowPauseMenuWhenDeadThisFrame();
     }
 });
 
@@ -397,6 +533,9 @@ async function drawHud() {
     }
     if(progress > 100) progress = 100;
     let text = `Stage: ${missionData.currentStage  + 1}/${missionData.stages} | ${missionData.stage.objectiveMessage[missionData.myTeam - 1]} | Progress ${progress}%`;
+    if(diedAt != null) {
+        text = "Open the map and select a spawn point"
+    }
     //let text ="boop";
     AddTextComponentString(text);
     DrawText(0.17, 0.9355);
@@ -435,4 +574,35 @@ async function startCarJacking() {
         TaskPlayAnim( plr, "veh@break_in@0h@p_m_one@", "low_locked_ps", 8.0, 1.0, missionData.stage.missionObjective.captureTime + 10000, 1, 0, 0, 0, 0 )
         jacking = true;
     }
+}
+
+var shownMessage = false;
+function hookSpawn() {
+    /*
+     * Set an automatic spawn callback for the spawn manager. Normally, this works using
+     * hardcoded spawn points, but since this is a scripting tutorial we'll do it this way.
+     * The spawn manager will call this when the player is dead or when forceRespawn is called.
+     */
+    exports.spawnmanager.setAutoSpawnCallback(() => {
+      // spawnmanager has said we should spawn, let's spawn!
+
+      /*
+      exports.spawnmanager.spawnPlayer({
+        // this argument is basically an object containing the spawn location...
+        x: 466.8401,
+        y: 197.7201,
+        z: 111.5291,
+        // ... and the model to spawn as.
+        model: 'a_m_m_skater_01'
+      }, () => {
+          //Callback
+          shownMessage = false;
+      });*/
+    });
+  
+    // Enable auto-spawn.
+    exports.spawnmanager.setAutoSpawn(true)
+  
+    // And force respawn when the game type starts.
+    //exports.spawnmanager.forceRespawn()
 }
