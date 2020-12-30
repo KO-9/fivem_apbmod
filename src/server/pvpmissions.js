@@ -419,7 +419,7 @@ onNet("capturing", async function(stage) {
     const game_group = await getGroupFromPlayerIdx(source);
     if(!game_group || game_group.mission.stages[stage].missionObjective.captured) {
         emitNet("cancel_action", source);
-        console.log(game_group);
+        //console.log(game_group);
         return;
     }
     game_group.mission.stages[stage].missionObjective.progress += capture_update_rate;
